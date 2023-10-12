@@ -42,7 +42,7 @@ else
 fi
 
 # Rutas de directorio
-ORIGEN_DIR="/home/$USUARIO/DPAdmin16-2023#Grupo"
+ORIGEN_DIR="/home/$USUARIO/DPAdmin16-2023#66"
 DESTINO_DIR="/backup_origen2023"
 
 # Comprimir y cifrar la copia de seguridad en el servidor origen
