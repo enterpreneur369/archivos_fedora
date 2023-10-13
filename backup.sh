@@ -2,11 +2,11 @@
 
 # Función de ayuda
 help() {
-  echo "Uso: $0 [-o ORIGEN] [-d DESTINO] [-u USUARIO] [-p CONTRASEÑA]"
+  echo "Uso: $0 [-o ORIGEN] [-d DESTINO] [-u USUARIO] [-p PASSPHRASE]"
   echo "  -o ORIGEN    Dirección IP o nombre de host del servidor de origen (Ubuntu)"
   echo "  -d DESTINO   Dirección IP o nombre de host del servidor de destino (Fedora)"
   echo "  -u USUARIO   Nombre de usuario SSH en el servidor de origen"
-  echo "  -p CONTRASEÑA Contraseña del usuario SSH (opcional, se recomienda el uso de claves SSH)"
+  echo "  -p PASSPHRASE Frase de paso para cifrar el archivo de respaldo"
   exit 1
 }
 
@@ -14,7 +14,7 @@ help() {
 ORIGEN=""
 DESTINO=""
 USUARIO=""
-CONTRASENA=""
+PASSPHRASE=""
 
 # Procesar argumentos
 while getopts "o:d:u:p:h" opt; do
@@ -22,37 +22,33 @@ while getopts "o:d:u:p:h" opt; do
     o) ORIGEN=$OPTARG ;;
     d) DESTINO=$OPTARG ;;
     u) USUARIO=$OPTARG ;;
-    p) CONTRASENA=$OPTARG ;;
+    p) PASSPHRASE=$OPTARG ;;
     h) help ;;
     \?) echo "Opción no válida: -$OPTARG" >&2; help ;;
   esac
 done
 
 # Validar argumentos
-if [ -z "$ORIGEN" ] || [ -z "$DESTINO" ] || [ -z "$USUARIO" ]; then
+if [ -z "$ORIGEN" ] || [ -z "$DESTINO" ] || [ -z "$USUARIO" ] || [ -z "$PASSPHRASE" ]; then
   echo "Faltan argumentos obligatorios."
   help
 fi
 
 # Comprobar si se proporcionó una contraseña o utilizar la autenticación con clave SSH
-if [ -n "$CONTRASENA" ]; then
-  OPCIONES_SCP="-o PasswordAuthentication=yes"
-else
-  OPCIONES_SCP="-o PasswordAuthentication=no"
-fi
+OPCIONES_SCP="-o PasswordAuthentication=no"
 
 # Rutas de directorio
-ORIGEN_DIR="/home/$USUARIO/DPAdmin16-2023#66"
-DESTINO_DIR="/backup_origen2023"
+ORIGEN_DIR="/home/$USUARIO"
+DESTINO_DIR="/home/DPAdmin16-2023#66"
 
 # Comprimir y cifrar la copia de seguridad en el servidor origen
-tar czf - "$ORIGEN_DIR" | gpg -c --passphrase "$CONTRASENA" | ssh $OPCIONES_SCP $USUARIO@$ORIGEN "cat > /tmp/backup.tar.gz.gpg"
+tar czf - "$ORIGEN_DIR" | gpg --batch --symmetric --passphrase "$PASSPHRASE" | ssh $OPCIONES_SCP $USUARIO@$ORIGEN "cat > /tmp/backup.tar.gz.gpg"
 
 # Copiar la copia de seguridad al servidor destino
 scp $OPCIONES_SCP $USUARIO@$ORIGEN:/tmp/backup.tar.gz.gpg "$DESTINO:$DESTINO_DIR"
 
 # Descomprimir y descifrar la copia de seguridad en el servidor destino
-ssh $DESTINO "cd $DESTINO_DIR && gpg -d --passphrase $CONTRASENA -o backup.tar.gz /tmp/backup.tar.gz.gpg && tar xzf backup.tar.gz"
+ssh $DESTINO "cd $DESTINO_DIR && gpg --batch --decrypt --passphrase $PASSPHRASE -o backup.tar.gz /tmp/backup.tar.gz.gpg && tar xzf backup.tar.gz"
 
 # Limpiar archivos temporales en el servidor origen y destino
 ssh $USUARIO@$ORIGEN "rm /tmp/backup.tar.gz.gpg"
